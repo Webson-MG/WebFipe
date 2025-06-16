@@ -1,0 +1,128 @@
+import requests
+
+BASE_URL = "https://veiculos.fipe.org.br/api/veiculos"
+headers = {
+    "Content-Type": "application/json",
+    "Referer": "https://veiculos.fipe.org.br/",
+}
+
+def get_tabela_referencia():
+    resp = requests.post(f"{BASE_URL}/ConsultarTabelaDeReferencia", headers=headers)
+    return resp.json()[0]["Codigo"]
+
+def get_marcas(tipo, tabela):
+    payload = {"codigoTabelaReferencia": tabela, "codigoTipoVeiculo": tipo}
+    resp = requests.post(f"{BASE_URL}/ConsultarMarcas", headers=headers, json=payload)
+    return resp.json()
+
+def get_modelos(tipo, tabela, marca):
+    payload = {
+        "codigoTabelaReferencia": tabela,
+        "codigoTipoVeiculo": tipo,
+        "codigoMarca": marca,
+    }
+    resp = requests.post(f"{BASE_URL}/ConsultarModelos", headers=headers, json=payload)
+    return resp.json()["Modelos"]
+
+def get_anos(tipo, tabela, marca, modelo):
+    payload = {
+        "codigoTabelaReferencia": tabela,
+        "codigoTipoVeiculo": tipo,
+        "codigoMarca": marca,
+        "codigoModelo": modelo,
+    }
+    resp = requests.post(f"{BASE_URL}/ConsultarAnoModelo", headers=headers, json=payload)
+    return resp.json()
+
+def get_valor(tipo, tabela, marca, modelo, ano, cod_combustivel):
+    payload = {
+        "codigoTabelaReferencia": tabela,
+        "codigoMarca": marca,
+        "codigoModelo": modelo,
+        "codigoTipoVeiculo": tipo,
+        "anoModelo": int(ano),
+        "codigoTipoCombustivel": int(cod_combustivel),
+        "tipoConsulta": "tradicional",
+        "modeloCodigoExterno": None,
+    }
+    resp = requests.post(f"{BASE_URL}/ConsultarValorComTodosParametros", headers=headers, json=payload)
+    return resp.json()
+
+# --- Início do programa ---
+
+print("Consulta FIPE\n")
+
+# 1. Tipo de veículo
+while True:
+    try:
+        tipo = int(input("Escolha o tipo de veículo (1-Carro, 2-Moto, 3-Caminhão): "))
+        if tipo in [1, 2, 3]:
+            break
+        else:
+            print("Tipo inválido, tente novamente.")
+    except:
+        print("Digite um número válido.")
+
+tabela = get_tabela_referencia()
+
+# 2. Marcas
+marcas = get_marcas(tipo, tabela)
+print("\nMarcas disponíveis:")
+for m in marcas[:200]:
+    print(f"{m['Value']} - {m['Label']}")
+
+while True:
+    try:
+        marca = int(input("\nDigite o código da marca: "))
+        if any(int(m['Value']) == marca for m in marcas):
+            break
+        else:
+            print("Código de marca inválido.")
+    except:
+        print("Digite um número válido.")
+
+# 3. Modelos
+modelos = get_modelos(tipo, tabela, marca)
+print("\nModelos disponíveis:")
+for m in modelos[:200]:
+    print(f"{m['Value']} - {m['Label']}")
+
+while True:
+    try:
+        modelo = int(input("\nDigite o código do modelo: "))
+        if any(int(m['Value']) == modelo for m in modelos):
+            break
+        else:
+            print("Código de modelo inválido.")
+    except:
+        print("Digite um número válido.")
+
+# 4. Anos
+# 4. Anos
+anos = get_anos(tipo, tabela, marca, modelo)
+print("\nAnos disponíveis:")
+anos_dict = {}
+for a in anos:
+    ano = a['Value'].split('-')[0]  # pega só o ano
+    if ano not in anos_dict:  # evita duplicados
+        anos_dict[ano] = a['Value']
+        print(ano)
+
+while True:
+    ano_input = input("\nDigite o ano (ex: 2020): ")
+    if ano_input in anos_dict:
+        ano_comb = anos_dict[ano_input]
+        break
+    else:
+        print("Ano inválido, digite um dos anos exibidos.")
+
+ano_modelo, cod_combust = ano_comb.split("-")
+
+# 5. Resultado
+resultado = get_valor(tipo, tabela, marca, modelo, ano_modelo, cod_combust)
+
+print("\n--- Resultado FIPE ---")
+print(f"Veículo: {resultado['Marca']} {resultado['Modelo']}")
+print(f"Ano/Combustível: {resultado['AnoModelo']} / {resultado['Combustivel']}")
+print(f"Preço FIPE: {resultado['Valor']}")
+
